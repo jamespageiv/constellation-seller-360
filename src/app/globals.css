@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #0033A0;
+  --color-navy-dark: #002270;
+  --color-navy-light: #1a4db8;
+  --color-teal: #00BFB3;
+  --color-teal-dark: #009e94;
+  --color-teal-light: #33cfc5;
+  --color-gold: #FFB81C;
+  --color-gold-dark: #e0a000;
+  --color-gold-light: #ffc94d;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-risk-high: #ef4444;
+  --color-risk-medium: #f59e0b;
+  --color-risk-low: #22c55e;
+  --color-stage-prospecting: #818cf8;
+  --color-stage-qualification: #60a5fa;
+  --color-stage-proposal: #f59e0b;
+  --color-stage-negotiation: #f97316;
+  --color-stage-closed-won: #22c55e;
+  --color-stage-closed-lost: #ef4444;
+}
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

@@ -1,0 +1,16 @@
+{
+  "name": "constellation-seller-360",
+  "description": "Constellation Energy — Modern Sales Headless 360 PoC | Seller UI powered by Salesforce",
+  "repository": "https://github.com/jamespageiv/constellation-seller-360",
+  "keywords": ["salesforce", "next.js", "react", "headless-360", "constellation-energy"],
+  "buildpacks": [
+    { "url": "heroku/nodejs" }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "stack": "heroku-24"
+}
