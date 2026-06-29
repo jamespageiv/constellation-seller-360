@@ -6,7 +6,8 @@ export async function GET() {
     const leads = await getLeads();
     return NextResponse.json(leads);
   } catch (error) {
-    console.error("Error fetching leads:", error);
-    return NextResponse.json({ error: "Failed to fetch leads" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error fetching leads:", message);
+    return NextResponse.json({ error: "Failed to fetch leads", detail: message }, { status: 500 });
   }
 }

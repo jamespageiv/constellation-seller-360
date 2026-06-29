@@ -6,7 +6,8 @@ export async function GET() {
     const accounts = await getAccounts();
     return NextResponse.json(accounts);
   } catch (error) {
-    console.error("Error fetching accounts:", error);
-    return NextResponse.json({ error: "Failed to fetch accounts" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error fetching accounts:", message);
+    return NextResponse.json({ error: "Failed to fetch accounts", detail: message }, { status: 500 });
   }
 }

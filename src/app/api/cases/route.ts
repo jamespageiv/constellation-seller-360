@@ -6,7 +6,8 @@ export async function GET() {
     const cases = await getCases();
     return NextResponse.json(cases);
   } catch (error) {
-    console.error("Error fetching cases:", error);
-    return NextResponse.json({ error: "Failed to fetch cases" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error fetching cases:", message);
+    return NextResponse.json({ error: "Failed to fetch cases", detail: message }, { status: 500 });
   }
 }

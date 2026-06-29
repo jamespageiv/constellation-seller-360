@@ -6,7 +6,8 @@ export async function GET() {
     const opportunities = await getOpportunities();
     return NextResponse.json(opportunities);
   } catch (error) {
-    console.error("Error fetching opportunities:", error);
-    return NextResponse.json({ error: "Failed to fetch opportunities" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error fetching opportunities:", message);
+    return NextResponse.json({ error: "Failed to fetch opportunities", detail: message }, { status: 500 });
   }
 }
