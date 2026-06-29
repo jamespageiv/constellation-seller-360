@@ -9,7 +9,9 @@ export async function GET() {
 
   const envStatus = {
     SF_LOGIN_URL: loginUrl,
-    SF_CLIENT_ID: clientId ? `set (${clientId.length} chars)` : "NOT SET",
+    SF_CLIENT_ID: clientId
+      ? `set (${clientId.length} chars) starts=${clientId.substring(0, 6)}...`
+      : "NOT SET",
     SF_CLIENT_SECRET: clientSecret
       ? `set (${clientSecret.length} chars) starts=${clientSecret.substring(0, 4)}...`
       : "NOT SET",
@@ -20,16 +22,43 @@ export async function GET() {
   const authResults: Record<string, string> = {};
 
   if (clientId && clientSecret && username && password) {
-    // --- Test 1: OAuth username-password flow ---
+    // --- Test 1: OAuth with JUST consumer key + dummy secret (to check if key is valid) ---
+    try {
+      const dummyParams = new URLSearchParams({
+        grant_type: "password",
+        client_id: clientId,
+        client_secret: "dummy_test_secret",
+        username: username,
+        password: "dummy_password",
+      });
+
+      const dummyResp = await fetch("https://login.salesforce.com/services/oauth2/token", {
+        method: "POST",
+        body: dummyParams,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+
+      const dummyBody = await dummyResp.text();
+      if (dummyBody.includes("invalid_client_id")) {
+        authResults["Consumer Key Check"] = "INVALID — consumer key not recognized";
+      } else if (dummyBody.includes("invalid_client")) {
+        authResults["Consumer Key Check"] = "KEY VALID — secret was wrong (expected with dummy)";
+      } else if (dummyBody.includes("invalid_grant")) {
+        authResults["Consumer Key Check"] = "KEY+SECRET structure OK — password issue";
+      } else {
+        authResults["Consumer Key Check"] = `Unexpected: ${dummyBody.substring(0, 200)}`;
+      }
+    } catch (err) {
+      authResults["Consumer Key Check"] = `ERROR: ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    // --- Test 2: OAuth with real credentials ---
     const urlsToTry = [
-      loginUrl !== "(not set)" ? loginUrl : null,
       "https://login.salesforce.com",
       "https://test.salesforce.com",
-    ].filter(Boolean) as string[];
+    ];
 
-    const uniqueUrls = [...new Set(urlsToTry)];
-
-    for (const url of uniqueUrls) {
+    for (const url of urlsToTry) {
       try {
         const params = new URLSearchParams({
           grant_type: "password",
@@ -57,7 +86,7 @@ export async function GET() {
       }
     }
 
-    // --- Test 2: SOAP login (gives more descriptive errors) ---
+    // --- Test 3: SOAP login v58.0 (gives descriptive errors) ---
     try {
       const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
@@ -70,7 +99,7 @@ export async function GET() {
   </soapenv:Body>
 </soapenv:Envelope>`;
 
-      const soapUrl = "https://login.salesforce.com/services/Soap/u/67.0";
+      const soapUrl = "https://login.salesforce.com/services/Soap/u/58.0";
       const soapResp = await fetch(soapUrl, {
         method: "POST",
         body: soapBody,
@@ -82,16 +111,14 @@ export async function GET() {
 
       const soapText = await soapResp.text();
       if (soapText.includes("<sessionId>")) {
-        authResults["SOAP login"] = "SUCCESS — credentials are valid!";
+        authResults["SOAP login (v58)"] = "SUCCESS — username + password+token are VALID";
       } else {
-        // Extract the fault string for a descriptive error
         const faultMatch = soapText.match(/<faultstring>(.*?)<\/faultstring>/);
         const codeMatch = soapText.match(/<sf:exceptionCode>(.*?)<\/sf:exceptionCode>/);
-        const msgMatch = soapText.match(/<sf:exceptionMessage>(.*?)<\/sf:exceptionMessage>/);
-        authResults["SOAP login"] = `FAILED: ${codeMatch?.[1] || "?"} — ${faultMatch?.[1] || msgMatch?.[1] || soapText.substring(0, 300)}`;
+        authResults["SOAP login (v58)"] = `FAILED: ${codeMatch?.[1] || "?"} — ${faultMatch?.[1] || soapText.substring(0, 300)}`;
       }
     } catch (err) {
-      authResults["SOAP login"] = `ERROR: ${err instanceof Error ? err.message : String(err)}`;
+      authResults["SOAP login (v58)"] = `ERROR: ${err instanceof Error ? err.message : String(err)}`;
     }
   }
 
