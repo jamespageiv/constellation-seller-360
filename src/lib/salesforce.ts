@@ -11,24 +11,13 @@ interface SalesforceTokenResponse {
 
 let cachedToken: { accessToken: string; instanceUrl: string; expiresAt: number } | null = null;
 
-async function getAccessToken(): Promise<{ accessToken: string; instanceUrl: string }> {
-  // Return cached token if still valid (tokens last ~2 hours, we refresh at 1h50m)
-  if (cachedToken && Date.now() < cachedToken.expiresAt) {
-    return { accessToken: cachedToken.accessToken, instanceUrl: cachedToken.instanceUrl };
-  }
-
-  const loginUrl = process.env.SF_LOGIN_URL || "https://login.salesforce.com";
-  const clientId = process.env.SF_CLIENT_ID;
-  const clientSecret = process.env.SF_CLIENT_SECRET;
-  const username = process.env.SF_USERNAME;
-  const password = process.env.SF_PASSWORD;
-
-  if (!clientId || !clientSecret || !username || !password) {
-    throw new Error(
-      "Missing Salesforce credentials. Set SF_CLIENT_ID, SF_CLIENT_SECRET, SF_USERNAME, SF_PASSWORD in environment."
-    );
-  }
-
+async function attemptAuth(
+  loginUrl: string,
+  clientId: string,
+  clientSecret: string,
+  username: string,
+  password: string
+): Promise<{ ok: true; data: SalesforceTokenResponse } | { ok: false; status: number; body: string }> {
   const params = new URLSearchParams({
     grant_type: "password",
     client_id: clientId,
@@ -45,18 +34,64 @@ async function getAccessToken(): Promise<{ accessToken: string; instanceUrl: str
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Salesforce auth failed: ${response.status} ${errorBody}`);
+    return { ok: false, status: response.status, body: errorBody };
   }
 
   const data: SalesforceTokenResponse = await response.json();
+  return { ok: true, data };
+}
 
-  cachedToken = {
-    accessToken: data.access_token,
-    instanceUrl: data.instance_url,
-    expiresAt: Date.now() + 110 * 60 * 1000, // refresh 10 min before 2h expiry
-  };
+async function getAccessToken(): Promise<{ accessToken: string; instanceUrl: string }> {
+  // Return cached token if still valid (tokens last ~2 hours, we refresh at 1h50m)
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return { accessToken: cachedToken.accessToken, instanceUrl: cachedToken.instanceUrl };
+  }
 
-  return { accessToken: data.access_token, instanceUrl: data.instance_url };
+  const primaryLoginUrl = process.env.SF_LOGIN_URL || "https://login.salesforce.com";
+  const clientId = process.env.SF_CLIENT_ID;
+  const clientSecret = process.env.SF_CLIENT_SECRET;
+  const username = process.env.SF_USERNAME;
+  const password = process.env.SF_PASSWORD;
+
+  if (!clientId || !clientSecret || !username || !password) {
+    throw new Error(
+      "Missing Salesforce credentials. Set SF_CLIENT_ID, SF_CLIENT_SECRET, SF_USERNAME, SF_PASSWORD in environment."
+    );
+  }
+
+  // Try primary login URL first
+  const primaryResult = await attemptAuth(primaryLoginUrl, clientId, clientSecret, username, password);
+
+  if (primaryResult.ok) {
+    cachedToken = {
+      accessToken: primaryResult.data.access_token,
+      instanceUrl: primaryResult.data.instance_url,
+      expiresAt: Date.now() + 110 * 60 * 1000,
+    };
+    return { accessToken: primaryResult.data.access_token, instanceUrl: primaryResult.data.instance_url };
+  }
+
+  // If primary fails, try test.salesforce.com (for sandbox/scratch orgs)
+  const fallbackUrls = [
+    "https://test.salesforce.com",
+    "https://login.salesforce.com",
+  ].filter(url => url !== primaryLoginUrl);
+
+  for (const fallbackUrl of fallbackUrls) {
+    console.log(`Primary auth failed at ${primaryLoginUrl}, trying ${fallbackUrl}...`);
+    const fallbackResult = await attemptAuth(fallbackUrl, clientId, clientSecret, username, password);
+    if (fallbackResult.ok) {
+      cachedToken = {
+        accessToken: fallbackResult.data.access_token,
+        instanceUrl: fallbackResult.data.instance_url,
+        expiresAt: Date.now() + 110 * 60 * 1000,
+      };
+      return { accessToken: fallbackResult.data.access_token, instanceUrl: fallbackResult.data.instance_url };
+    }
+  }
+
+  // All attempts failed — throw with primary error
+  throw new Error(`Salesforce auth failed: ${primaryResult.status} ${primaryResult.body}`);
 }
 
 const API_VERSION = "v67.0";
